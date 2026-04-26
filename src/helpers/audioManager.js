@@ -406,8 +406,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           };
           this._previewSource.connect(this._previewProcessor);
 
-          const provider = localTranscriptionProvider === "nvidia" ? "nvidia" : "whisper";
-          const model = provider === "nvidia" ? parakeetModel : whisperModel;
+          const provider = localTranscriptionProvider === "nvidia"
+            ? "nvidia"
+            : localTranscriptionProvider === "qwen3"
+              ? "qwen3"
+              : "whisper";
+          const model = provider === "nvidia" ? parakeetModel : provider === "qwen3" ? qwen3AsrModel : whisperModel;
           window.electronAPI?.startDictationPreview?.({ provider, model });
         } catch (e) {
           logger.warn("Preview worklet setup failed", { error: e.message }, "audio");
@@ -515,6 +519,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const localProvider = settings.localTranscriptionProvider;
       const whisperModel = settings.whisperModel;
       const parakeetModel = settings.parakeetModel || "parakeet-tdt-0.6b-v3";
+      const qwen3AsrModel = settings.qwen3AsrModel || "qwen3-asr-0.6b";
 
       const cloudTranscriptionMode = settings.cloudTranscriptionMode;
       const isSignedIn = settings.isSignedIn;
@@ -533,6 +538,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         if (localProvider === "nvidia") {
           activeModel = parakeetModel;
           result = await this.processWithLocalParakeet(audioBlob, parakeetModel, metadata);
+        } else if (localProvider === "qwen3") {
+          activeModel = qwen3AsrModel;
+          result = await this.processWithLocalQwen3Asr(audioBlob, qwen3AsrModel, metadata);
         } else {
           activeModel = whisperModel;
           result = await this.processWithLocalWhisper(audioBlob, whisperModel, metadata);
@@ -781,6 +789,82 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         }
       } else {
         throw new Error(`Parakeet failed: ${error.message}`);
+      }
+    }
+  }
+
+  async processWithLocalQwen3Asr(audioBlob, model = "qwen3-asr-0.6b", metadata = {}) {
+    const timings = {};
+
+    try {
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const language = validateLanguageForModel(getSettings().preferredLanguage, model);
+      const options = { model };
+      if (language) {
+        options.language = language;
+      }
+
+      logger.debug(
+        "Qwen3-ASR transcription starting",
+        { audioFormat: audioBlob.type, audioSizeBytes: audioBlob.size, model },
+        "performance"
+      );
+
+      const transcriptionStart = performance.now();
+      const result = await window.electronAPI.transcribeLocalQwen3Asr(arrayBuffer, options);
+      timings.transcriptionProcessingDurationMs = Math.round(
+        performance.now() - transcriptionStart
+      );
+
+      logger.debug(
+        "Qwen3-ASR transcription complete",
+        {
+          transcriptionProcessingDurationMs: timings.transcriptionProcessingDurationMs,
+          success: result.success,
+        },
+        "performance"
+      );
+
+      if (result.success && result.text) {
+        const rawText = result.text;
+        const reasoningStart = performance.now();
+        const text = await this.processTranscription(result.text, "local-qwen3-asr");
+        timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
+
+        if (text !== null && text !== undefined) {
+          return {
+            success: true,
+            text: text || result.text,
+            rawText,
+            source: "local-qwen3-asr",
+            timings,
+          };
+        } else {
+          throw new Error("No text transcribed");
+        }
+      } else if (result.success === false && result.message === "No audio detected") {
+        throw new Error("No audio detected");
+      } else {
+        throw new Error(result.message || result.error || "Qwen3-ASR transcription failed");
+      }
+    } catch (error) {
+      if (error.message === "No audio detected") {
+        throw error;
+      }
+
+      const { allowOpenAIFallback, useLocalWhisper: isLocalMode } = getSettings();
+
+      if (allowOpenAIFallback && isLocalMode) {
+        try {
+          const fallbackResult = await this.processWithOpenAIAPI(audioBlob, metadata);
+          return { ...fallbackResult, source: "openai-fallback" };
+        } catch (fallbackError) {
+          throw new Error(
+            `Qwen3-ASR failed: ${error.message}. OpenAI fallback also failed: ${fallbackError.message}`
+          );
+        }
+      } else {
+        throw new Error(`Qwen3-ASR failed: ${error.message}`);
       }
     }
   }

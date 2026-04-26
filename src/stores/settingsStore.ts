@@ -307,6 +307,7 @@ export interface SettingsState
   setWhisperModel: (value: string) => void;
   setLocalTranscriptionProvider: (value: LocalTranscriptionProvider) => void;
   setParakeetModel: (value: string) => void;
+  setQwen3AsrModel: (value: string) => void;
   setAllowOpenAIFallback: (value: boolean) => void;
   setAllowLocalFallback: (value: boolean) => void;
   setFallbackWhisperModel: (value: string) => void;
@@ -457,10 +458,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   uiLanguage: normalizeUiLanguage(isBrowser ? localStorage.getItem("uiLanguage") : null),
   useLocalWhisper: readBoolean("useLocalWhisper", false),
   whisperModel: readString("whisperModel", "base"),
-  localTranscriptionProvider: (readString("localTranscriptionProvider", "whisper") === "nvidia"
-    ? "nvidia"
+  localTranscriptionProvider: (["nvidia", "qwen3"].includes(
+    readString("localTranscriptionProvider", "whisper")
+  )
+    ? readString("localTranscriptionProvider", "whisper")
     : "whisper") as LocalTranscriptionProvider,
   parakeetModel: readString("parakeetModel", ""),
+  qwen3AsrModel: readString("qwen3AsrModel", ""),
   allowOpenAIFallback: readBoolean("allowOpenAIFallback", false),
   allowLocalFallback: readBoolean("allowLocalFallback", false),
   fallbackWhisperModel: readString("fallbackWhisperModel", "base"),
@@ -600,11 +604,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   })(),
   meetingUseLocalWhisper: readBoolean("meetingUseLocalWhisper", false),
   meetingWhisperModel: readString("meetingWhisperModel", ""),
-  meetingLocalTranscriptionProvider: (readString("meetingLocalTranscriptionProvider", "whisper") ===
-  "nvidia"
-    ? "nvidia"
+  meetingLocalTranscriptionProvider: (["nvidia", "qwen3"].includes(
+    readString("meetingLocalTranscriptionProvider", "whisper")
+  )
+    ? readString("meetingLocalTranscriptionProvider", "whisper")
     : "whisper") as LocalTranscriptionProvider,
   meetingParakeetModel: readString("meetingParakeetModel", ""),
+  meetingQwen3AsrModel: readString("meetingQwen3AsrModel", ""),
   meetingCloudTranscriptionProvider: readString("meetingCloudTranscriptionProvider", ""),
   meetingCloudTranscriptionModel: readString("meetingCloudTranscriptionModel", ""),
   meetingCloudTranscriptionBaseUrl: readString("meetingCloudTranscriptionBaseUrl", ""),
@@ -706,6 +712,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     set({ localTranscriptionProvider: value });
   },
   setParakeetModel: createStringSetter("parakeetModel"),
+  setQwen3AsrModel: createStringSetter("qwen3AsrModel"),
   setAllowOpenAIFallback: createBooleanSetter("allowOpenAIFallback"),
   setAllowLocalFallback: createBooleanSetter("allowLocalFallback"),
   setFallbackWhisperModel: createStringSetter("fallbackWhisperModel"),
@@ -1046,6 +1053,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (settings.localTranscriptionProvider !== undefined)
       s.setLocalTranscriptionProvider(settings.localTranscriptionProvider);
     if (settings.parakeetModel !== undefined) s.setParakeetModel(settings.parakeetModel);
+    if (settings.qwen3AsrModel !== undefined) s.setQwen3AsrModel(settings.qwen3AsrModel);
     if (settings.allowOpenAIFallback !== undefined)
       s.setAllowOpenAIFallback(settings.allowOpenAIFallback);
     if (settings.allowLocalFallback !== undefined)
@@ -1123,6 +1131,7 @@ export interface ResolvedMeetingTranscription {
   whisperModel: string;
   localTranscriptionProvider: LocalTranscriptionProvider;
   parakeetModel: string;
+  qwen3AsrModel: string;
   cloudTranscriptionProvider: string;
   cloudTranscriptionModel: string;
   cloudTranscriptionBaseUrl: string;
@@ -1143,6 +1152,7 @@ export const selectResolvedMeetingTranscription = (
     whisperModel: state.meetingWhisperModel || state.whisperModel,
     localTranscriptionProvider: state.meetingLocalTranscriptionProvider,
     parakeetModel: state.meetingParakeetModel || state.parakeetModel,
+    qwen3AsrModel: state.meetingQwen3AsrModel || state.qwen3AsrModel,
     cloudTranscriptionProvider,
     cloudTranscriptionModel: state.meetingCloudTranscriptionModel || state.cloudTranscriptionModel,
     cloudTranscriptionBaseUrl:

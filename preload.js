@@ -250,6 +250,22 @@ contextBridge.exposeInMainWorld("electronAPI", {
   parakeetServerStop: () => ipcRenderer.invoke("parakeet-server-stop"),
   parakeetServerStatus: () => ipcRenderer.invoke("parakeet-server-status"),
 
+  // Qwen3-ASR model management
+  transcribeLocalQwen3Asr: (audioBlob, options) =>
+    ipcRenderer.invoke("transcribe-local-qwen3-asr", audioBlob, options),
+  checkQwen3AsrInstallation: () => ipcRenderer.invoke("check-qwen3-asr-installation"),
+  downloadQwen3AsrModel: (modelName) => ipcRenderer.invoke("download-qwen3-asr-model", modelName),
+  onQwen3AsrDownloadProgress: registerListener("qwen3-asr-download-progress"),
+  checkQwen3AsrModelStatus: (modelName) =>
+    ipcRenderer.invoke("check-qwen3-asr-model-status", modelName),
+  listQwen3AsrModels: () => ipcRenderer.invoke("list-qwen3-asr-models"),
+  deleteQwen3AsrModel: (modelName) => ipcRenderer.invoke("delete-qwen3-asr-model", modelName),
+  cancelQwen3AsrDownload: () => ipcRenderer.invoke("cancel-qwen3-asr-download"),
+  getQwen3AsrDiagnostics: () => ipcRenderer.invoke("get-qwen3-asr-diagnostics"),
+  qwen3AsrServerStart: (modelName) => ipcRenderer.invoke("qwen3-asr-server-start", modelName),
+  qwen3AsrServerStop: () => ipcRenderer.invoke("qwen3-asr-server-stop"),
+  qwen3AsrServerStatus: () => ipcRenderer.invoke("qwen3-asr-server-status"),
+
   // Diarization (speaker identification) functions
   downloadDiarizationModels: () => ipcRenderer.invoke("download-diarization-models"),
   getDiarizationModelStatus: () => ipcRenderer.invoke("get-diarization-model-status"),

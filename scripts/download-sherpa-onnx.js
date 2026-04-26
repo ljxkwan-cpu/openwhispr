@@ -4,7 +4,7 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 const { downloadFile, findBinaryInDir, parseArgs, setExecutable } = require("./lib/download-utils");
 
-const SHERPA_ONNX_VERSION = "1.12.23";
+const SHERPA_ONNX_VERSION = "1.12.36";
 const GITHUB_RELEASE_URL = `https://github.com/k2-fsa/sherpa-onnx/releases/download/v${SHERPA_ONNX_VERSION}`;
 
 // Binary configurations for each platform

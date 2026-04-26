@@ -17,6 +17,7 @@ import {
   TranscriptionProviderData,
   WHISPER_MODEL_INFO,
   PARAKEET_MODEL_INFO,
+  QWEN3_ASR_MODEL_INFO,
 } from "../models/ModelRegistry";
 import {
   MODEL_PICKER_COLORS,
@@ -217,6 +218,7 @@ const VALID_CLOUD_PROVIDER_IDS = CLOUD_PROVIDER_TABS.map((p) => p.id);
 const LOCAL_PROVIDER_TABS: Array<{ id: string; name: string; disabled?: boolean }> = [
   { id: "whisper", name: "OpenAI" },
   { id: "nvidia", name: "NVIDIA" },
+  { id: "qwen3", name: "Qwen3 ASR" },
 ];
 
 interface ModeToggleProps {
@@ -285,9 +287,11 @@ export default function TranscriptionModelPicker({
   const effectiveLocal = mode === "local" ? true : mode === "cloud" ? false : useLocalWhisper;
   const [localModels, setLocalModels] = useState<LocalModel[]>([]);
   const [parakeetModels, setParakeetModels] = useState<LocalModel[]>([]);
+  const [qwen3AsrModels, setQwen3AsrModels] = useState<LocalModel[]>([]);
   const [internalLocalProvider, setInternalLocalProvider] = useState(selectedLocalProvider);
   const hasLoadedRef = useRef(false);
   const hasLoadedParakeetRef = useRef(false);
+  const hasLoadedQwen3Ref = useRef(false);
   const [cudaStatus, setCudaStatus] = useState<CudaWhisperStatus | null>(null);
   const [cudaDownloading, setCudaDownloading] = useState(false);
   const [cudaProgress, setCudaProgress] = useState<DownloadProgress>({
@@ -305,8 +309,10 @@ export default function TranscriptionModelPicker({
   }, [selectedLocalProvider]);
   const isLoadingRef = useRef(false);
   const isLoadingParakeetRef = useRef(false);
+  const isLoadingQwen3Ref = useRef(false);
   const loadLocalModelsRef = useRef<(() => Promise<void>) | null>(null);
   const loadParakeetModelsRef = useRef<(() => Promise<void>) | null>(null);
+  const loadQwen3ModelsRef = useRef<(() => Promise<void>) | null>(null);
   const ensureValidCloudSelectionRef = useRef<(() => void) | null>(null);
   const selectedLocalModelRef = useRef(selectedLocalModel);
   const onLocalModelSelectRef = useRef(onLocalModelSelect);
@@ -381,6 +387,23 @@ export default function TranscriptionModelPicker({
     }
   }, []);
 
+  const loadQwen3AsrModels = useCallback(async () => {
+    if (isLoadingQwen3Ref.current) return;
+    isLoadingQwen3Ref.current = true;
+
+    try {
+      const result = await window.electronAPI?.listQwen3AsrModels();
+      if (result?.success) {
+        setQwen3AsrModels(result.models);
+      }
+    } catch (error) {
+      logger.error("Failed to load Qwen3-ASR models", { error }, "models");
+      setQwen3AsrModels([]);
+    } finally {
+      isLoadingQwen3Ref.current = false;
+    }
+  }, []);
+
   const ensureValidCloudSelection = useCallback(() => {
     const isValidProvider = VALID_CLOUD_PROVIDER_IDS.includes(selectedCloudProvider);
 
@@ -425,6 +448,9 @@ export default function TranscriptionModelPicker({
     loadParakeetModelsRef.current = loadParakeetModels;
   }, [loadParakeetModels]);
   useEffect(() => {
+    loadQwen3ModelsRef.current = loadQwen3AsrModels;
+  }, [loadQwen3AsrModels]);
+  useEffect(() => {
     ensureValidCloudSelectionRef.current = ensureValidCloudSelection;
   }, [ensureValidCloudSelection]);
 
@@ -437,6 +463,9 @@ export default function TranscriptionModelPicker({
     } else if (internalLocalProvider === "nvidia" && !hasLoadedParakeetRef.current) {
       hasLoadedParakeetRef.current = true;
       loadParakeetModelsRef.current?.();
+    } else if (internalLocalProvider === "qwen3" && !hasLoadedQwen3Ref.current) {
+      hasLoadedQwen3Ref.current = true;
+      loadQwen3ModelsRef.current?.();
     }
   }, [effectiveLocal, internalLocalProvider]);
 
@@ -445,6 +474,7 @@ export default function TranscriptionModelPicker({
 
     hasLoadedRef.current = false;
     hasLoadedParakeetRef.current = false;
+    hasLoadedQwen3Ref.current = false;
     ensureValidCloudSelectionRef.current?.();
   }, [effectiveLocal]);
 
@@ -452,10 +482,11 @@ export default function TranscriptionModelPicker({
     const handleModelsCleared = () => {
       loadLocalModels();
       loadParakeetModels();
+      loadQwen3AsrModels();
     };
     window.addEventListener("openwhispr-models-cleared", handleModelsCleared);
     return () => window.removeEventListener("openwhispr-models-cleared", handleModelsCleared);
-  }, [loadLocalModels, loadParakeetModels]);
+  }, [loadLocalModels, loadParakeetModels, loadQwen3AsrModels]);
 
   useEffect(() => {
     if (!effectiveLocal || internalLocalProvider !== "whisper") return;
@@ -526,6 +557,20 @@ export default function TranscriptionModelPicker({
     onDownloadComplete: loadParakeetModels,
   });
 
+  const {
+    downloadingModel: downloadingQwen3AsrModel,
+    downloadProgress: qwen3AsrDownloadProgress,
+    downloadModel: downloadQwen3AsrModel,
+    deleteModel: deleteQwen3AsrModel,
+    isDownloadingModel: isDownloadingQwen3AsrModel,
+    isInstalling: isInstallingQwen3Asr,
+    cancelDownload: cancelQwen3AsrDownload,
+    isCancelling: isCancellingQwen3Asr,
+  } = useModelDownload({
+    modelType: "qwen3",
+    onDownloadComplete: loadQwen3AsrModels,
+  });
+
   const handleModeChange = useCallback(
     (isLocal: boolean) => {
       onModeChange(isLocal);
@@ -577,6 +622,15 @@ export default function TranscriptionModelPicker({
     (modelId: string) => {
       onLocalProviderSelect?.("nvidia");
       setInternalLocalProvider("nvidia");
+      onLocalModelSelect(modelId);
+    },
+    [onLocalModelSelect, onLocalProviderSelect]
+  );
+
+  const handleQwen3AsrModelSelect = useCallback(
+    (modelId: string) => {
+      onLocalProviderSelect?.("qwen3");
+      setInternalLocalProvider("qwen3");
       onLocalModelSelect(modelId);
     },
     [onLocalModelSelect, onLocalProviderSelect]
@@ -760,6 +814,25 @@ export default function TranscriptionModelPicker({
     [showConfirmDialog, deleteParakeetModel, t]
   );
 
+  const handleQwen3AsrDelete = useCallback(
+    (modelId: string) => {
+      showConfirmDialog({
+        title: t("transcription.deleteModel.title"),
+        description: t("transcription.deleteModel.description"),
+        onConfirm: async () => {
+          await deleteQwen3AsrModel(modelId, async () => {
+            const result = await window.electronAPI?.listQwen3AsrModels();
+            if (result?.success) {
+              setQwen3AsrModels(result.models);
+            }
+          });
+        },
+        variant: "destructive",
+      });
+    },
+    [showConfirmDialog, deleteQwen3AsrModel, t]
+  );
+
   const renderParakeetModels = () => {
     const modelsToRender =
       parakeetModels.length === 0
@@ -807,6 +880,61 @@ export default function TranscriptionModelPicker({
                 })
               }
               onCancel={cancelParakeetDownload}
+              styles={styles}
+            />
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderQwen3AsrModels = () => {
+    const modelsToRender =
+      qwen3AsrModels.length === 0
+        ? Object.entries(QWEN3_ASR_MODEL_INFO).map(([modelId, info]) => ({
+            model: modelId,
+            downloaded: false,
+            size_mb: info.sizeMb,
+          }))
+        : qwen3AsrModels;
+
+    return (
+      <div className="space-y-0.5">
+        {modelsToRender.map((model) => {
+          const modelId = model.model;
+          const info = QWEN3_ASR_MODEL_INFO[modelId] ?? {
+            name: modelId,
+            description: t("transcription.fallback.qwen3AsrModelDescription"),
+            size: t("common.unknown"),
+            language: "zh",
+            recommended: false,
+          };
+
+          return (
+            <LocalModelCard
+              key={modelId}
+              modelId={modelId}
+              name={info.name}
+              description={info.description}
+              size={info.size}
+              actualSizeMb={model.size_mb}
+              isSelected={modelId === selectedLocalModel}
+              isDownloaded={model.downloaded ?? false}
+              isDownloading={isDownloadingQwen3AsrModel(modelId)}
+              isCancelling={isCancellingQwen3Asr}
+              recommended={false}
+              provider="qwen3"
+              onSelect={() => handleQwen3AsrModelSelect(modelId)}
+              onDelete={() => handleQwen3AsrDelete(modelId)}
+              onDownload={() =>
+                downloadQwen3AsrModel(modelId, (downloadedId) => {
+                  setQwen3AsrModels((prev) =>
+                    prev.map((m) => (m.model === downloadedId ? { ...m, downloaded: true } : m))
+                  );
+                  handleQwen3AsrModelSelect(downloadedId);
+                })
+              }
+              onCancel={cancelQwen3AsrDownload}
               styles={styles}
             />
           );
@@ -992,6 +1120,7 @@ export default function TranscriptionModelPicker({
           <div>
             {internalLocalProvider === "whisper" && renderLocalModels()}
             {internalLocalProvider === "nvidia" && renderParakeetModels()}
+            {internalLocalProvider === "qwen3" && renderQwen3AsrModels()}
           </div>
         </>
       )}

@@ -202,7 +202,9 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         const result =
           localTranscriptionProvider === "nvidia"
             ? await window.electronAPI?.checkParakeetModelStatus(modelToCheck)
-            : await window.electronAPI?.checkModelStatus(modelToCheck);
+            : localTranscriptionProvider === "qwen3"
+              ? await window.electronAPI?.checkQwen3AsrModelStatus(modelToCheck)
+              : await window.electronAPI?.checkModelStatus(modelToCheck);
         setIsModelDownloaded(result?.downloaded ?? false);
       } catch (error) {
         logger.error("Failed to check model status", { error }, "onboarding");

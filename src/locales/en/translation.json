@@ -390,7 +390,8 @@
     "customProvider": "Custom",
     "fallback": {
       "whisperModelDescription": "Model",
-      "parakeetModelDescription": "NVIDIA Parakeet Model"
+      "parakeetModelDescription": "NVIDIA Parakeet Model",
+      "qwen3AsrModelDescription": "Qwen3 ASR Model"
     },
     "whisperModels": "Whisper Models"
   },
@@ -1653,6 +1654,9 @@
     "descriptions": {
       "parakeet": {
         "parakeet_tdt_0_6b_v3": "Fast multilingual ASR with auto language detection (25 languages)"
+      },
+      "qwen3Asr": {
+        "qwen3_asr_0_6b": "High-accuracy multilingual ASR with strong Chinese support (52 languages)"
       },
       "diarization": {
         "segmentation": "Speech boundary detection for speaker diarization",

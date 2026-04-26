@@ -38,6 +38,19 @@
       "descriptionKey": "models.descriptions.parakeet.parakeet_tdt_0_6b_v3"
     }
   },
+  "qwen3AsrModels": {
+    "qwen3-asr-0.6b": {
+      "name": "Qwen3-ASR 0.6B",
+      "description": "High-accuracy multilingual ASR with strong Chinese support",
+      "size": "941MB",
+      "sizeMb": 941,
+      "language": "multilingual",
+      "supportedLanguages": ["zh", "yue", "en", "ja", "ko", "fr", "de", "es", "pt", "it", "ru", "ar", "hi"],
+      "downloadUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25.tar.bz2",
+      "extractDir": "sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25",
+      "descriptionKey": "models.descriptions.qwen3Asr.qwen3_asr_0_6b"
+    }
+  },
   "diarizationModels": {
     "sherpa-onnx-pyannote-segmentation-3-0": {
       "name": "Pyannote Segmentation 3.0",
